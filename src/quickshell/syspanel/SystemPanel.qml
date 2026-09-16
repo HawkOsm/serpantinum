@@ -72,12 +72,25 @@ Item {
         return "";
     }
 
-    readonly property string powerProfile: {
-        switch (PowerProfiles.profile) {
-            case PowerProfile.Performance: return "performance";
-            case PowerProfile.PowerSaver: return "power-saver";
-            default: return "balanced";
-        }
+    property string tccActiveProfileId: "balanced"
+
+    readonly property int tccProfileIndex: {
+        if (tccActiveProfileId === "performance") return 0;
+        if (tccActiveProfileId === "quiet") return 2;
+        if (tccActiveProfileId === "power_saving_high" || tccActiveProfileId === "power_saving_low") return 3;
+        return 1;
+    }
+
+    function refreshTccProfile() {
+        tccProfileGet.running = false;
+        tccProfileGet.running = true;
+    }
+
+    function setTccProfile(id) {
+        root.tccActiveProfileId = id;
+        tccProfileSet.command = ["bash", Caching.serpantinumDir + "/scripts/system/tcc_profile_set.sh", id];
+        tccProfileSet.running = false;
+        tccProfileSet.running = true;
     }
 
     readonly property real sysVolume: Audio.defaultSink && Audio.defaultSink.audio ? Math.round(Audio.defaultSink.audio.volume * 100) : 0
@@ -140,6 +153,28 @@ Item {
         }
     }
 
+    Process {
+        id: tccProfileGet
+        running: false
+        command: ["bash", Caching.serpantinumDir + "/scripts/system/tcc_profile_get.sh"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let out = this.text.trim();
+                if (out !== "") {
+                    root.tccActiveProfileId = out;
+                }
+            }
+        }
+    }
+
+    Process {
+        id: tccProfileSet
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: root.refreshTccProfile()
+        }
+    }
+
     property real introContent: 0.0
     property real introTop: 0.0
     property real introCore: 0.0
@@ -180,6 +215,8 @@ Item {
             if (nightLightBtn) nightLightBtn.updateState();
             if (coffeeBtn) coffeeBtn.updateState();
 
+            refreshTccProfile();
+
             briPollerTimer.interval = 150;
             briPollerTimer.restart();
         } else {
@@ -206,6 +243,7 @@ Item {
 
     Component.onCompleted: {
         hibernateCheck.running = true;
+        refreshTccProfile();
         if (visible) {
             NotificationManager.sysPanelOpen = true;
             if (nightLightBtn) nightLightBtn.updateState();
@@ -1379,45 +1417,31 @@ Item {
                         Switch {
                             id: profileSwitch
                             anchors.fill: parent
-                            implicitWidth: root.isDesktop ? parent.width : (PowerProfiles.hasPerformanceProfile ? root.s(240) : root.s(162))
+                            implicitWidth: root.isDesktop ? parent.width : root.s(300)
                             implicitHeight: root.isDesktop ? root.s(48) : root.s(52)
                             cornerRadius: root.s(15)
                             fontPixelSize: root.isDesktop ? root.s(14) : root.s(22)
                             options: {
                                 if (root.isDesktop) {
-                                    return PowerProfiles.hasPerformanceProfile
-                                        ? ["󰓅 " + I18n.t("syspanel.profiles.performance"), "󰗑 " + I18n.t("syspanel.profiles.balanced"), "󰌪 " + I18n.t("syspanel.profiles.power_saver")]
-                                        : ["󰗑 " + I18n.t("syspanel.profiles.balanced"), "󰌪 " + I18n.t("syspanel.profiles.power_saver")];
+                                    return [
+                                        "󰓅 " + I18n.t("syspanel.profiles.performance"),
+                                        "󰗑 " + I18n.t("syspanel.profiles.balanced"),
+                                        "󰽃 " + I18n.t("syspanel.profiles.quiet"),
+                                        "󰌪 " + I18n.t("syspanel.profiles.power_saver"),
+                                    ];
                                 } else {
-                                    return PowerProfiles.hasPerformanceProfile
-                                        ? ["󰓅", "󰗑", "󰌪"]
-                                        : ["󰗑", "󰌪"];
+                                    return ["󰓅", "󰗑", "󰽃", "󰌪"];
                                 }
                             }
                             accentColor: root.profileColor
                             baseColor: ThemeBackend.surface1
                             textColor: ThemeBackend.text
                             activeTextColor: ThemeBackend.crust
-                            currentIndex: {
-                                if (PowerProfiles.hasPerformanceProfile) {
-                                    if (root.powerProfile === "performance") return 0;
-                                    if (root.powerProfile === "balanced") return 1;
-                                    return 2;
-                                } else {
-                                    if (root.powerProfile === "balanced") return 0;
-                                    return 1;
-                                }
-                            }
+                            currentIndex: root.tccProfileIndex
 
                             onValueChanged: (idx, val) => {
-                                if (PowerProfiles.hasPerformanceProfile) {
-                                    if (idx === 0) PowerProfiles.profile = PowerProfile.Performance;
-                                    else if (idx === 1) PowerProfiles.profile = PowerProfile.Balanced;
-                                    else PowerProfiles.profile = PowerProfile.PowerSaver;
-                                } else {
-                                    if (idx === 0) PowerProfiles.profile = PowerProfile.Balanced;
-                                    else PowerProfiles.profile = PowerProfile.PowerSaver;
-                                }
+                                const ids = ["performance", "__default_custom_profile__", "quiet", "power_saving_high"];
+                                root.setTccProfile(ids[idx]);
                             }
                         }
                     }

@@ -697,7 +697,8 @@
     "profiles": {
       "performance": "Performance",
       "balanced": "Balanced",
-      "power_saver": "Power saver"
+      "quiet": "Quiet",
+      "power_saver": "Power saving"
     },
     "battery": {
       "fully_charged": "Fully charged",

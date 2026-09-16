@@ -45,5 +45,8 @@ ShellRoot {
 
     Component.onCompleted: {
         FirstLaunch.checkFirstLaunch();
+        PowerTierWatcher.checkAcState();
+        PowerTierWatcher.checkBatteryTier();
+        PowerTierWatcher.checkGpuDock();
     }
 }
