@@ -14,6 +14,18 @@ Item {
     property var screenWallpapers: ({})
     property var screenWallpaperPaths: ({})
 
+    // DRM connector names (eDP-1, eDP-2, ...) are assigned by driver probe order and
+    // can change across reboots (hybrid GPU laptops in particular), which would orphan
+    // any wallpaper state saved under the old name. Persisted per-monitor state should
+    // be keyed by this EDID-derived identity instead, since it follows the physical
+    // panel rather than enumeration order. Falls back to the connector name if a
+    // screen reports no model/serial (e.g. some nested/virtual compositors).
+    function monitorId(screen): string {
+        if (!screen) return "";
+        let id = ((screen.model || "") + "_" + (screen.serialNumber || "")).replace(/^_+|_+$/g, "");
+        return (id.length > 0 ? id : screen.name).replace(/[^A-Za-z0-9._-]/g, "_");
+    }
+
     function setWallpaper(screenName: string, path: string, transition: string): void {
         root.wallpaperChanged(screenName, path, transition ? transition : "fade");
     }

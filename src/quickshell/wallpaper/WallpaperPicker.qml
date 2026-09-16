@@ -226,7 +226,7 @@ Item {
         command: [
             "bash",
             "-c",
-            "cat '" + Caching.getCacheDir("wallpaper") + "/current_" + (masterWindow.screen ? masterWindow.screen.name : "") + "_name' 2>/dev/null || cat '" + Caching.getCacheDir("wallpaper") + "/current_default_name' 2>/dev/null || echo ''"
+            "cat '" + Caching.getCacheDir("wallpaper") + "/current_" + (masterWindow.screen ? Wallpaper.monitorId(masterWindow.screen) : "") + "_name' 2>/dev/null || cat '" + Caching.getCacheDir("wallpaper") + "/current_default_name' 2>/dev/null || echo ''"
         ]
         stdout: StdioCollector {
             onStreamFinished: {

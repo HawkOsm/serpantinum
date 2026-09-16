@@ -31,10 +31,15 @@ ShellRoot {
                 anchors { top: true; bottom: true; left: true; right: true }
 
                 readonly property string wpCacheDir: Caching.getCacheDir("wallpaper")
-                readonly property string wpStatePath: wpCacheDir + "/current_" + barWindow.screen.name
-                readonly property string wpCopyDir: wpCacheDir + "/copy_" + barWindow.screen.name
+                readonly property string wpMonitorId: Wallpaper.monitorId(barWindow.screen)
+                readonly property string wpStatePath: wpCacheDir + "/current_" + wpMonitorId
+                // Pre-migration state, still keyed by the old, unstable connector name.
+                // Read-only fallback so upgrading doesn't blank out an already-configured
+                // wallpaper; new saves always go to wpStatePath.
+                readonly property string wpLegacyStatePath: wpCacheDir + "/current_" + barWindow.screen.name
+                readonly property string wpCopyDir: wpCacheDir + "/copy_" + wpMonitorId
                 readonly property string wpSnapshotPath: wpCacheDir + "/current_wallpaper.png"
-                readonly property string wpMonitorSnapshotPath: wpCacheDir + "/current_wallpaper_" + barWindow.screen.name + ".png"
+                readonly property string wpMonitorSnapshotPath: wpCacheDir + "/current_wallpaper_" + wpMonitorId + ".png"
 
                 property string currentWallpaperPath: ""
                 property string originalFileName: ""
@@ -109,7 +114,13 @@ ShellRoot {
                     running: false
                     command: [
                         "bash", "-c",
-                        "F1='" + barWindow.wpStatePath + "'; F2='" + barWindow.wpStatePath + "_name'; [ -f \"$F1\" ] && cat \"$F1\" || true; echo '---SPLIT---'; [ -f \"$F2\" ] && cat \"$F2\" || true"
+                        "F1='" + barWindow.wpStatePath + "'; F2='" + barWindow.wpStatePath + "_name'; " +
+                        "L1='" + barWindow.wpLegacyStatePath + "'; L2='" + barWindow.wpLegacyStatePath + "_name'; " +
+                        "[ ! -f \"$F1\" ] && [ -f \"$L1\" ] && cp -f \"$L1\" \"$F1\"; " +
+                        "[ ! -f \"$F2\" ] && [ -f \"$L2\" ] && cp -f \"$L2\" \"$F2\"; " +
+                        "[ -f \"$F1\" ] && cat \"$F1\" || true; " +
+                        "echo '---SPLIT---'; " +
+                        "[ -f \"$F2\" ] && cat \"$F2\" || true"
                     ]
                     stdout: StdioCollector {
                         onStreamFinished: {
