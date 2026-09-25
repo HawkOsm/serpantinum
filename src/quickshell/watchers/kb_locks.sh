@@ -51,9 +51,9 @@ last_num = read_state(num_paths)
 count = 0
 
 while True:
-    time.sleep(0.02)
+    time.sleep(0.1)
     count += 1
-    if count >= 50:
+    if count >= 10:
         count = 0
         caps_paths = glob.glob("/sys/class/leds/*capslock*/brightness")
         num_paths = glob.glob("/sys/class/leds/*numlock*/brightness")
