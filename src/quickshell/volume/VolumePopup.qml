@@ -70,6 +70,12 @@ Item {
         }
     }
 
+    Process {
+        id: mixerProcess
+        command: ["sh", "-c", "pwvucontrol || pavucontrol"]
+        running: false
+    }
+
     property string activeTab: "outputs"
     onActiveTabChanged: {
         let newIndex = (activeTab === "outputs") ? 0 : ((activeTab === "inputs") ? 1 : 2);
@@ -462,6 +468,17 @@ Item {
                                 horizontalAlignment: Text.AlignRight
                             }
                         }
+                    }
+
+                    IconButton {
+                        Layout.alignment: Qt.AlignTop
+                        size: window.s(28)
+                        cornerRadius: window.s(8)
+                        buttonIcon: "󰒓"
+                        iconFontSize: window.s(15)
+                        accentColor: ThemeBackend.surface1
+                        textColor: isHoveredOrHighlighted ? ThemeBackend.text : ThemeBackend.subtext0
+                        onClicked: mixerProcess.running = true
                     }
                 }
 
