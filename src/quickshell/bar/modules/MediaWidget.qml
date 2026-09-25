@@ -26,6 +26,15 @@ Rectangle {
     property var player: MprisController.activePlayer
     property bool isMediaActive: player !== null && player.playbackState !== MprisPlaybackState.Stopped && player.trackTitle !== ""
 
+    // Only scroll a real track title while on screen: a running marquee (even its PauseAnimation) keeps the
+    // bar window re-rendering every frame, including when this module is hidden.
+    readonly property bool marqueeAllowed: isMediaActive && visible
+    onMarqueeAllowedChanged: {
+        marqueeContainer.x = 0;
+        if (marqueeAllowed && titleTextMain.implicitWidth > titleClipRect.width) titleAnim.restart();
+        else titleAnim.stop();
+    }
+
     property real targetX: 0
 
     x: targetX
@@ -177,7 +186,7 @@ Rectangle {
 
                             onWidthChanged: {
                                 marqueeContainer.x = 0;
-                                if (titleTextMain.implicitWidth > width) {
+                                if (mediaWidgetRoot.marqueeAllowed && titleTextMain.implicitWidth > width) {
                                     titleAnim.restart();
                                 } else {
                                     titleAnim.stop();
@@ -193,6 +202,8 @@ Rectangle {
                                     Text {
                                         id: titleTextMain
                                         text: isMediaActive ? (player ? player.trackTitle : "") : I18n.t("music.nothing_playing")
+                                        width: mediaWidgetRoot.marqueeAllowed ? implicitWidth : Math.min(implicitWidth, titleClipRect.width)
+                                        elide: Text.ElideRight
                                         font.family: ThemeBackend.fontFamily
                                         font.weight: Font.Black
                                         font.pixelSize: barWindow ? barWindow.s(mediaWidgetRoot.isCompact ? 11 : 12) : (mediaWidgetRoot.isCompact ? 11 : 12)
@@ -200,7 +211,7 @@ Rectangle {
 
                                         onTextChanged: {
                                             marqueeContainer.x = 0;
-                                            if (implicitWidth > titleClipRect.width) {
+                                            if (mediaWidgetRoot.marqueeAllowed && implicitWidth > titleClipRect.width) {
                                                 titleAnim.restart();
                                             } else {
                                                 titleAnim.stop();
@@ -215,14 +226,14 @@ Rectangle {
                                         font.weight: Font.Black
                                         font.pixelSize: barWindow ? barWindow.s(mediaWidgetRoot.isCompact ? 11 : 12) : (mediaWidgetRoot.isCompact ? 11 : 12)
                                         color: ThemeBackend.text
-                                        visible: titleTextMain.implicitWidth > titleClipRect.width
+                                        visible: mediaWidgetRoot.marqueeAllowed && titleTextMain.implicitWidth > titleClipRect.width
                                     }
                                 }
 
                                 SequentialAnimation on x {
                                     id: titleAnim
                                     loops: Animation.Infinite
-                                    running: titleTextMain.implicitWidth > titleClipRect.width
+                                    running: mediaWidgetRoot.marqueeAllowed && titleTextMain.implicitWidth > titleClipRect.width
 
                                     onRunningChanged: {
                                         if (!running) marqueeContainer.x = 0;

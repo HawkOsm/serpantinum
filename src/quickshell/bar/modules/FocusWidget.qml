@@ -17,6 +17,15 @@ Rectangle {
     property bool isSolid: false
     property bool distinctPills: barWindow ? (barWindow.distinctPills !== undefined ? barWindow.distinctPills : false) : false
     property bool moduleActive: true
+
+    // Only scroll while on screen: a running marquee (even its PauseAnimation) keeps the
+    // bar window re-rendering every frame, including when this module is hidden.
+    readonly property bool marqueeAllowed: moduleActive && visible
+    onMarqueeAllowedChanged: {
+        marqueeContainer.x = 0;
+        if (marqueeAllowed && titleTextMain.implicitWidth > titleClipRect.width) titleAnim.restart();
+        else titleAnim.stop();
+    }
     property bool isGrouped: false
     property bool isCompact: isGrouped || (isSolid && distinctPills)
     property real targetX: 0
@@ -105,7 +114,7 @@ Rectangle {
                         onTextChanged: {
                             titleAnim.stop();
                             marqueeContainer.x = 0;
-                            if (titleTextMain.implicitWidth > titleClipRect.width) {
+                            if (focusWidgetRoot.marqueeAllowed && titleTextMain.implicitWidth > titleClipRect.width) {
                                 titleAnim.start();
                             }
                         }
@@ -123,7 +132,7 @@ Rectangle {
                 SequentialAnimation {
                     id: titleAnim
                     loops: Animation.Infinite
-                    running: titleTextMain.implicitWidth > titleClipRect.width
+                    running: focusWidgetRoot.marqueeAllowed && titleTextMain.implicitWidth > titleClipRect.width
 
                     PauseAnimation { duration: 3000 }
 

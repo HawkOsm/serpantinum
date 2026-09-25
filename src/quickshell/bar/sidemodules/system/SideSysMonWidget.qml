@@ -24,14 +24,14 @@ Rectangle {
 
     function updateSubscription() {
         if (isSysVisible) {
-            SysData.subscribe()
+            SysData.subscribe(false)
         } else {
-            SysData.unsubscribe()
+            SysData.unsubscribe(false)
         }
     }
 
     Component.onCompleted: updateSubscription()
-    Component.onDestruction: SysData.unsubscribe()
+    Component.onDestruction: SysData.unsubscribe(false)
     onIsSysVisibleChanged: updateSubscription()
 
     property real targetWidth: barWindow ? (isGrouped ? barWindow.barHeight - 8 : ((isSolid && distinctPills) ? barWindow.barHeight - 6 : barWindow.barHeight)) : (isGrouped ? 22 : ((isSolid && distinctPills) ? 24 : 30))
@@ -60,14 +60,6 @@ Rectangle {
     visible: opacity > 0
     Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
 
-    property real globalWavePhase: 0.0
-    NumberAnimation on globalWavePhase {
-        from: 0
-        to: Math.PI * 2
-        duration: 1800
-        loops: Animation.Infinite
-        running: sideSysMonRoot.isSysVisible
-    }
 
     Timer {
         running: sideSysMonRoot.moduleActive && barWindow && barWindow.isStartupReady && barWindow.isDataReady
@@ -83,6 +75,7 @@ Rectangle {
     component SysMonPill: Rectangle {
         id: pillRoot
         property real value: 0
+
         property string icon: ""
         property color accentColor: ThemeBackend.mauve
         property bool initAnimTrigger: false
@@ -92,8 +85,6 @@ Rectangle {
 
         property real fillRatio: Math.max(0.0, Math.min(1.0, isNaN(animValue) ? 0.0 : animValue))
         property real fillY: height * (1.0 - fillRatio)
-        property real waveAmp: (fillRatio < 0.99 && fillRatio > 0.01) ? (barWindow ? barWindow.s(sideSysMonRoot.isCompact ? 2.0 : 2.5) : (sideSysMonRoot.isCompact ? 2.0 : 2.5)) * Math.sin(fillRatio * Math.PI) : 0
-        property real waveCenterOffset: 0.375 * waveAmp * (Math.sin(sideSysMonRoot.globalWavePhase) - Math.cos(sideSysMonRoot.globalWavePhase))
 
         height: sysCol.pillHeight
         width: sysCol.pillWidth
@@ -116,68 +107,11 @@ Rectangle {
         }
         Behavior on opacity { NumberAnimation { duration: 450; easing.type: Easing.OutCubic } }
 
-        Canvas {
-            id: pillCanvas
+        LevelFill {
             anchors.fill: parent
-            renderTarget: Canvas.FramebufferObject
-            renderStrategy: Canvas.Cooperative
-
-            onPaint: {
-                var ctx = getContext("2d");
-                ctx.clearRect(0, 0, width, height);
-                if (pillRoot.fillRatio <= 0) return;
-
-                ctx.save();
-                var r = pillRoot.radius;
-                ctx.beginPath();
-                ctx.moveTo(r, 0);
-                ctx.lineTo(width - r, 0);
-                ctx.quadraticCurveTo(width, 0, width, r);
-                ctx.lineTo(width, height - r);
-                ctx.quadraticCurveTo(width, height, width - r, height);
-                ctx.lineTo(r, height);
-                ctx.quadraticCurveTo(0, height, 0, height - r);
-                ctx.lineTo(0, r);
-                ctx.quadraticCurveTo(0, 0, r, 0);
-                ctx.closePath();
-                ctx.clip();
-
-                ctx.beginPath();
-                ctx.moveTo(0, pillRoot.fillY);
-                if (pillRoot.waveAmp > 0) {
-                    var cp1y = pillRoot.fillY + Math.sin(sideSysMonRoot.globalWavePhase) * pillRoot.waveAmp;
-                    var cp2y = pillRoot.fillY + Math.cos(sideSysMonRoot.globalWavePhase + Math.PI) * pillRoot.waveAmp;
-                    ctx.bezierCurveTo(width * 0.33, cp2y, width * 0.66, cp1y, width, pillRoot.fillY);
-                    ctx.lineTo(width, height);
-                    ctx.lineTo(0, height);
-                } else {
-                    ctx.lineTo(width, pillRoot.fillY);
-                    ctx.lineTo(width, height);
-                    ctx.lineTo(0, height);
-                }
-                ctx.closePath();
-
-                var grad = ctx.createLinearGradient(0, 0, 0, height);
-                grad.addColorStop(0, Qt.lighter(pillRoot.accentColor, 1.25).toString());
-                grad.addColorStop(1, pillRoot.accentColor.toString());
-                ctx.fillStyle = grad;
-                ctx.globalAlpha = 0.95;
-                ctx.fill();
-                ctx.restore();
-            }
-
-            Connections {
-                target: sideSysMonRoot
-                enabled: sideSysMonRoot.isSysVisible && pillRoot.waveAmp > 0
-                function onGlobalWavePhaseChanged() { pillCanvas.requestPaint(); }
-            }
-
-            Connections {
-                target: pillRoot
-                enabled: sideSysMonRoot.isSysVisible
-                function onFillRatioChanged() { pillCanvas.requestPaint(); }
-                function onAccentColorChanged() { pillCanvas.requestPaint(); }
-            }
+            fillRatio: pillRoot.fillRatio
+            radius: pillRoot.radius
+            color: pillRoot.accentColor
         }
 
         Text {
@@ -193,7 +127,7 @@ Rectangle {
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
-            height: Math.min(parent.height, Math.max(0, (parent.height * pillRoot.fillRatio) - pillRoot.waveCenterOffset))
+            height: Math.min(parent.height, Math.max(0, (parent.height * pillRoot.fillRatio)))
             clip: true
             visible: pillRoot.fillRatio > 0
 

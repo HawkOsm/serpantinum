@@ -60,12 +60,14 @@ Rectangle {
     Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
 
     property real globalWavePhase: 0.0
-    NumberAnimation on globalWavePhase {
-        from: 0
-        to: Math.PI * 2
-        duration: sideBatRoot.isCharging ? 1800 : 3600
-        loops: Animation.Infinite
-        running: sideBatRoot.showLayout && sideBatRoot.moduleActive
+    // ~30fps tick instead of a display-rate NumberAnimation. Every tick repaints the
+    // Canvas and re-renders the whole bar window, so only run while it's on screen
+    // and charging (otherwise the wave amplitude is 0.5px and invisible).
+    Timer {
+        interval: 33
+        repeat: true
+        running: sideBatRoot.showLayout && sideBatRoot.moduleActive && sideBatRoot.isCharging && sideBatRoot.visible
+        onTriggered: sideBatRoot.globalWavePhase = (sideBatRoot.globalWavePhase + Math.PI * 2 * interval / (sideBatRoot.isCharging ? 1800 : 3600)) % (Math.PI * 2)
     }
 
     Timer {

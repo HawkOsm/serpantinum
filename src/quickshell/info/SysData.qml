@@ -18,18 +18,23 @@ Item {
     property real diskTotalGb: 0.0
 
     property int subscribers: 0
+    // The bar pills subscribe with fast = false and only need a 5s refresh; the system usage
+    // panel and lock screen keep the 2s rate while they're open.
+    property int fastSubscribers: 0
     property bool isScanningNet: false
 
-    function subscribe() {
+    function subscribe(fast = true) {
         subscribers++;
+        if (fast) fastSubscribers++;
         if (subscribers === 1) {
             fetchTimer.restart();
             fetchProc.running = true;
         }
     }
 
-    function unsubscribe() {
+    function unsubscribe(fast = true) {
         subscribers = Math.max(0, subscribers - 1);
+        if (fast) fastSubscribers = Math.max(0, fastSubscribers - 1);
         if (subscribers === 0) {
             fetchTimer.stop();
             fetchProc.running = false;
@@ -51,7 +56,7 @@ Item {
 
     Timer {
         id: fetchTimer
-        interval: 2000
+        interval: root.fastSubscribers > 0 ? 2000 : 5000
         repeat: true
         running: false
         onTriggered: {
