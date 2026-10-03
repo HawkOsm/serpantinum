@@ -163,11 +163,17 @@ Item {
     Item {
         visible: false
         Connections {
+            target: Bluetooth
+            ignoreUnknownSignals: true
+            function onDefaultAdapterChanged() {
+                window.rebuildBtData(false);
+            }
+        }
+        Connections {
             target: Bluetooth.defaultAdapter || null
-            enabled: window.visible
             ignoreUnknownSignals: true
             function onEnabledChanged() {
-                window.requestBtRebuild();
+                window.rebuildBtData(false);
             }
             function onDiscoveringChanged() {
                 window.requestBtRebuild();
@@ -175,7 +181,6 @@ Item {
         }
         Connections {
             target: (Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.devices) ? Bluetooth.defaultAdapter.devices : null
-            enabled: window.visible
             ignoreUnknownSignals: true
             function onObjectInsertedPost(object, index) {
                 window.requestBtRebuild();
@@ -186,12 +191,11 @@ Item {
         }
         Repeater {
             id: btDeviceRepeater
-            model: (window.visible && Bluetooth.defaultAdapter) ? Bluetooth.defaultAdapter.devices : null
+            model: Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.devices : null
             Item {
                 property var device: modelData
                 Connections {
                     target: device || null
-                    enabled: window.visible
                     ignoreUnknownSignals: true
                     function onConnectedChanged() { window.requestBtRebuild(); }
                     function onBatteryChanged() { window.requestBtRebuild(); }
