@@ -448,10 +448,8 @@ Item {
         }
     }
 
-    Settings {
+    QtObject {
         id: cache
-        location: window.cacheDir + "/settings.ini"
-        category: "QS_NetworkWidgetUnified"
         property string lastWifiSsid: ""
         property string lastBtJson: ""
     }
