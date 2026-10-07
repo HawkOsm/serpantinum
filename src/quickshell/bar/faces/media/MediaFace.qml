@@ -176,8 +176,6 @@ Item {
                                     Text {
                                         id: titleTextMain
                                         text: isMediaActive ? (player ? player.trackTitle : "") : I18n.t("music.nothing_playing")
-                                        width: mediaWidgetRoot.marqueeAllowed ? implicitWidth : Math.min(implicitWidth, titleClipRect.width)
-                                        elide: Text.ElideRight
                                         font.family: ThemeBackend.fontFamily
                                         font.weight: Font.Black
                                         font.pixelSize: barWindow ? barWindow.s(root.isCompact ? 11 : 12) : (root.isCompact ? 11 : 12)
