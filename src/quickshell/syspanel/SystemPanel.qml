@@ -1574,39 +1574,25 @@ Item {
                             fontPixelSize: root.isDesktop ? root.s(14) : root.s(22)
                             options: {
                                 if (root.isDesktop) {
-                                    return PowerProfiles.hasPerformanceProfile
-                                        ? ["󰌪 " + I18n.t("syspanel.profiles.power_saver"), "󰗑 " + I18n.t("syspanel.profiles.balanced"), "󰓅 " + I18n.t("syspanel.profiles.performance")]
-                                        : ["󰌪 " + I18n.t("syspanel.profiles.power_saver"), "󰗑 " + I18n.t("syspanel.profiles.balanced")];
+                                    return [
+                                        "󰓅 " + I18n.t("syspanel.profiles.performance"),
+                                        "󰗑 " + I18n.t("syspanel.profiles.balanced"),
+                                        "󰽃 " + I18n.t("syspanel.profiles.quiet"),
+                                        "󰌪 " + I18n.t("syspanel.profiles.power_saver"),
+                                    ];
                                 } else {
-                                    return PowerProfiles.hasPerformanceProfile
-                                        ? ["󰌪", "󰗑", "󰓅"]
-                                        : ["󰌪", "󰗑"];
+                                    return ["󰓅", "󰗑", "󰽃", "󰌪"];
                                 }
                             }
                             accentColor: root.profileColor
                             baseColor: ThemeBackend.surface1
                             textColor: ThemeBackend.text
                             activeTextColor: ThemeBackend.crust
-                            currentIndex: {
-                                if (PowerProfiles.hasPerformanceProfile) {
-                                    if (root.powerProfile === "power-saver") return 0;
-                                    if (root.powerProfile === "balanced") return 1;
-                                    return 2;
-                                } else {
-                                    if (root.powerProfile === "power-saver") return 0;
-                                    return 1;
-                                }
-                            }
+                            currentIndex: root.tccProfileIndex
 
                             onValueChanged: (idx, val) => {
-                                if (PowerProfiles.hasPerformanceProfile) {
-                                    if (idx === 0) PowerProfiles.profile = PowerProfile.PowerSaver;
-                                    else if (idx === 1) PowerProfiles.profile = PowerProfile.Balanced;
-                                    else PowerProfiles.profile = PowerProfile.Performance;
-                                } else {
-                                    if (idx === 0) PowerProfiles.profile = PowerProfile.PowerSaver;
-                                    else PowerProfiles.profile = PowerProfile.Balanced;
-                                }
+                                const ids = ["performance", "__default_custom_profile__", "quiet", "power_saving_high"];
+                                root.setTccProfile(ids[idx]);
                             }
                         }
                     }

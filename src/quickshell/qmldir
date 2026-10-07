@@ -49,6 +49,7 @@ singleton DateTime 1.0 singletons/system/DateTime.qml
 singleton FirstLaunch 1.0 singletons/system/FirstLaunch.qml
 singleton I18n 1.0 singletons/system/I18n.qml
 singleton SysNotif 1.0 singletons/system/SysNotif.qml
+singleton PowerTierWatcher 1.0 singletons/system/PowerTierWatcher.qml
 singleton TimerState 1.0 singletons/system/TimerState.qml
 singleton Updater 1.0 singletons/system/Updater.qml
 

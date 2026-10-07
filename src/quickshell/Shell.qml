@@ -57,5 +57,8 @@ ShellRoot {
         Qt.application.name = "serpantinum";
         FirstLaunch.checkFirstLaunch();
         SysNotif.checkBattery();
+        PowerTierWatcher.checkAcState();
+        PowerTierWatcher.checkBatteryTier();
+        PowerTierWatcher.checkGpuDock();
     }
 }
