@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Window
-import QtCore
 import Qt.labs.folderlistmodel
 import QtMultimedia
 import QtQuick.Effects
@@ -9,7 +8,6 @@ import Quickshell
 import Quickshell.Io
 import "../"
 import "../reusables"
-import "../singletons"
 
 Item {
     id: window
@@ -162,7 +160,9 @@ Item {
                 let lines = this.text.trim().split("\n").map(s => s.trim()).filter(s => s.length > 0);
                 window.historyList = lines;
                 if (window.currentFilter === "History") {
-                    window.applyFilters(false);
+                    if (!window.reorderHistory()) {
+                        window.applyFilters(false);
+                    }
                 }
             }
         }
@@ -253,7 +253,7 @@ Item {
         let slash = clean.lastIndexOf("/");
         if (slash !== -1) clean = clean.substring(slash + 1);
         if (clean.startsWith("000_")) clean = clean.substring(4);
-        clean = clean.replace(/\.(jpg|jpeg|png|webp|gif|mp4|mkv|mov|webm)$/i, "");
+        clean = clean.replace(/\.(jpg|jpeg|png|webp|gif|bmp|mp4|mkv|mov|webm)$/i, "");
         return clean;
     }
 
@@ -359,6 +359,52 @@ Item {
         }
     }
 
+    function reorderHistory() {
+        if (window.currentFilter !== "History" || displayModel.count === 0 || !window.targetWallName) {
+            return false;
+        }
+
+        let cleanTarget = window.getCleanBaseName(window.targetWallName);
+        let fullTarget = window.getCleanName(window.targetWallName);
+        let foundIdx = -1;
+
+        for (let i = 0; i < displayModel.count; i++) {
+            let fn = displayModel.get(i).fileName;
+            if (fn === window.targetWallName || window.getCleanName(fn) === fullTarget || window.getCleanBaseName(fn) === cleanTarget) {
+                foundIdx = i;
+                break;
+            }
+        }
+
+        if (foundIdx === -1) {
+            return false;
+        }
+
+        if (foundIdx === 0) {
+            view.currentIndex = 0;
+            return true;
+        }
+
+        let histItems = window.getHistoryItems();
+        if (histItems.length !== displayModel.count) {
+            return false;
+        }
+
+        let displaySet = {};
+        for (let i = 0; i < displayModel.count; i++) {
+            displaySet[displayModel.get(i).fileName] = true;
+        }
+        for (let i = 0; i < histItems.length; i++) {
+            if (!displaySet[histItems[i].fileName]) {
+                return false;
+            }
+        }
+
+        displayModel.move(foundIdx, 0, 1);
+        view.currentIndex = 0;
+        return true;
+    }
+
     function applyWallpaper(safeFileName, isVideo) {
         if (!safeFileName || window.isApplying) return;
 
@@ -373,6 +419,10 @@ Item {
 
         const transitionTypes = ["fade"];
         const randomTransition = transitionTypes[Math.floor(Math.random() * transitionTypes.length)];
+
+        if (window.currentFilter === "History") {
+            window.reorderHistory();
+        }
 
         wallpaperHistoryReader.running = false;
         wallpaperHistoryReader.running = true;
@@ -447,14 +497,24 @@ Item {
         }
     }
 
-    Settings {
+    QtObject {
         id: searchState
-        location: Caching.getCacheDir("wallpaper") + "/settings.conf"
-        category: "QS_WallpaperPicker"
         property string query: ""
         property bool searched: false
         property string lastName: ""
         property int sessionId: 0
+
+        readonly property string filePath: Caching.getCacheDir("wallpaper") + "/search_state.json"
+
+        function save() {
+            let data = JSON.stringify({
+                query: searchState.query,
+                searched: searchState.searched,
+                lastName: searchState.lastName,
+                sessionId: searchState.sessionId
+            });
+            Quickshell.execDetached(["sh", "-c", "printf '%s\\n' \"$1\" > \"$2\"", "_", data, filePath]);
+        }
     }
 
     onIsSearchPausedChanged: {
@@ -473,7 +533,7 @@ Item {
 
         let isVid = window.isVideoTarget(window.targetWallName);
         if (isVid) {
-            if (window.currentFilter !== "Video" && window.currentFilter !== "All") {
+            if (window.currentFilter !== "Video") {
                 window._silentFilterChange = true;
                 window.currentFilter = "Video";
                 window._silentFilterChange = false;
@@ -532,12 +592,14 @@ Item {
                 searchState.searched = window.hasSearched;
                 searchState.lastName = window.lastSearchName;
                 searchState.sessionId = window.searchSessionId;
+                searchState.save();
                 Quickshell.execDetached([
                     window.scriptDir + "/search_control.sh",
                     "pause",
                     Caching.getRunDir("wallpaper")
                 ]);
             } else {
+                searchState.save();
                 Quickshell.execDetached([
                     window.scriptDir + "/search_control.sh",
                     "stop",
@@ -625,6 +687,7 @@ Item {
         window.visibleItemCount = 0;
         searchState.searched = true;
         searchState.query = searchInput.text.trim();
+        searchState.save();
         window.isSearchPaused = false;
         window.searchQuery = searchInput.text.trim();
         window._lastFilter = window.currentFilter;
@@ -688,7 +751,7 @@ Item {
             if (!cleanH || seen[cleanH]) continue;
 
             let lookup = window.thumbLookup[cleanH] || window.thumbLookup[hName];
-            if (lookup) {
+            if (lookup && lookup.fileName && !seen[lookup.fileName]) {
                 items.push({
                     "fileName": lookup.fileName,
                     "filePath": lookup.filePath,
@@ -700,6 +763,7 @@ Item {
                     "bucket": "History"
                 });
                 seen[cleanH] = true;
+                seen[lookup.fileName] = true;
             }
         }
         return items;
@@ -727,7 +791,7 @@ Item {
             let sFu = String(fu);
             let clean = window.getCleanName(sFn);
             let base = window.getCleanBaseName(sFn);
-            let isVid = sFn.toLowerCase().match(/\.(mp4|mkv|mov|webm)$/) !== null;
+            let isVid = window.isVideoTarget(sFn) || sFn.toLowerCase().match(/\.(mp4|mkv|mov|webm)$/) !== null;
 
             let cached = newThumbLookup[sFn] || newThumbLookup[clean] || newThumbLookup[base];
             let item = cached ? cached : {
@@ -774,7 +838,7 @@ Item {
     FolderListModel {
         id: srcModel
         folder: "file://" + window.srcDir
-        nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.gif", "*.mp4", "*.mkv", "*.mov", "*.webm", "*.JPG", "*.JPEG", "*.PNG", "*.WEBP", "*.GIF", "*.MP4", "*.MKV", "*.MOV", "*.WEBM"]
+        nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.gif", "*.bmp", "*.mp4", "*.mkv", "*.mov", "*.webm", "*.JPG", "*.JPEG", "*.PNG", "*.WEBP", "*.GIF", "*.BMP", "*.MP4", "*.MKV", "*.MOV", "*.WEBM"]
         caseSensitive: true
         showDirs: false
         onCountChanged: {
@@ -797,6 +861,37 @@ Item {
         interval: 150
         repeat: false
         onTriggered: window.triggerIndexer()
+    }
+
+    Process {
+        id: searchStateReader
+        running: false
+        command: ["sh", "-c", "[ -f \"$1\" ] && cat \"$1\"", "_", Caching.getCacheDir("wallpaper") + "/search_state.json"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let trimmed = this.text ? this.text.trim() : "";
+                if (trimmed.length > 0) {
+                    try {
+                        let data = JSON.parse(trimmed);
+                        if (data && typeof data === "object") {
+                            searchState.query = data.query || "";
+                            searchState.searched = !!data.searched;
+                            searchState.lastName = data.lastName || "";
+                            searchState.sessionId = data.sessionId || 0;
+
+                            if (searchState.searched) {
+                                searchInput.text = searchState.query;
+                                window.searchQuery = searchState.query;
+                                window.hasSearched = true;
+                                window.lastSearchName = searchState.lastName;
+                                window.searchSessionId = searchState.sessionId;
+                                window.isSearchPaused = true;
+                            }
+                        }
+                    } catch(e) {}
+                }
+            }
+        }
     }
 
     Process {
@@ -895,9 +990,14 @@ Item {
             newColorMap[fname] = item.hex || "#808080";
             newBucketMap[fname] = item.bucket || "Monochrome";
 
-            if (item.isVideo) {
+            let isVid = !!item.isVideo || window.isVideoTarget(fname) || fname.toLowerCase().match(/\.(mp4|mkv|mov|webm)$/) !== null;
+
+            if (isVid) {
+                item.isVideo = true;
+                item.bucket = "Video";
                 videoItems.push(item);
             } else {
+                item.isVideo = false;
                 localItems.push(item);
             }
         }
@@ -1039,19 +1139,13 @@ Item {
             for (let i = 0; i < localProxyModel.count; i++) {
                 let it = localProxyModel.get(i);
                 if (it && it.fileName && !seenNames[it.fileName]) {
-                    seenNames[it.fileName] = true;
-                    combined.push(it);
-                }
-            }
-            for (let i = 0; i < videoProxyModel.count; i++) {
-                let it = videoProxyModel.get(i);
-                if (it && it.fileName && !seenNames[it.fileName]) {
+                    if (it.isVideo || window.isVideoTarget(it.fileName)) continue;
                     seenNames[it.fileName] = true;
                     combined.push(it);
                 }
             }
 
-            const order = { "Red": 1, "Orange": 2, "Yellow": 3, "Green": 4, "Blue": 5, "Purple": 6, "Pink": 7, "Monochrome": 8, "Video": 9 };
+            const order = { "Red": 1, "Orange": 2, "Yellow": 3, "Green": 4, "Blue": 5, "Purple": 6, "Pink": 7, "Monochrome": 8 };
             combined.sort((a, b) => {
                 let oA = order[a.bucket] !== undefined ? order[a.bucket] : 10;
                 let oB = order[b.bucket] !== undefined ? order[b.bucket] : 10;
@@ -1068,7 +1162,7 @@ Item {
                     "fileUrl": String(combined[i].fileUrl),
                     "posterPath": combined[i].posterPath || "",
                     "posterUrl": String(combined[i].posterUrl || ""),
-                    "isVideo": !!combined[i].isVideo,
+                    "isVideo": false,
                     "hex": combined[i].hex || "#808080",
                     "bucket": bucket
                 });
@@ -1141,6 +1235,7 @@ Item {
                     let it = sourceModel.get(i);
                     let fname = it ? (it.fileName || "") : "";
                     if (!fname || seenNames[fname]) continue;
+                    if (it.isVideo || window.isVideoTarget(fname)) continue;
                     seenNames[fname] = true;
 
                     let bucket = it.bucket || "Monochrome";
@@ -1150,7 +1245,7 @@ Item {
                         "fileUrl": String(it.fileUrl),
                         "posterPath": it.posterPath || "",
                         "posterUrl": String(it.posterUrl || ""),
-                        "isVideo": !!it.isVideo,
+                        "isVideo": false,
                         "hex": it.hex || "#808080",
                         "bucket": bucket
                     });
@@ -1286,13 +1381,13 @@ Item {
 
             let sFn = String(fn);
             if (window.hasSearched && !sFn.startsWith(currentPrefix)) continue;
+            if (existingProxyNames[sFn]) continue;
 
             let item = { "fileName": sFn, "filePath": decodeURIComponent(String(fu).replace("file://", "")), "fileUrl": String(fu), "posterPath": "", "posterUrl": "", "isVideo": false, "hex": "#808080", "bucket": "Search" };
 
-            if (!existingProxyNames[sFn]) {
-                batchProxy.push(item);
-                existingProxyNames[sFn] = true;
-            }
+            batchProxy.push(item);
+            existingProxyNames[sFn] = true;
+
             if (window.currentFilter === "Search" && !existingDisplayNames[sFn]) {
                 batchDisplay.push(item);
                 existingDisplayNames[sFn] = true;
@@ -1319,7 +1414,7 @@ Item {
     FolderListModel {
         id: searchFolderModel
         folder: window.searchDir
-        nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.gif", "*.mp4", "*.mkv", "*.mov", "*.webm", "*.JPG", "*.JPEG", "*.PNG", "*.WEBP", "*.GIF", "*.MP4", "*.MKV", "*.MOV", "*.WEBM"]
+        nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.webp", "*.gif", "*.bmp", "*.mp4", "*.mkv", "*.mov", "*.webm", "*.JPG", "*.JPEG", "*.PNG", "*.WEBP", "*.GIF", "*.BMP", "*.MP4", "*.MKV", "*.MOV", "*.WEBM"]
         caseSensitive: true
         showDirs: false
         sortField: FolderListModel.Name
@@ -1379,6 +1474,14 @@ Item {
         }
         addDisplaced: Transition {
             enabled: window.allowAddAnimation && !window.isModelChanging && !window.isFilterAnimating && !(window.currentFilter === "Search" && window.hasSearched && !window.isSearchPaused)
+            NumberAnimation { properties: "x,y"; duration: 400; easing.type: Easing.OutCubic }
+        }
+        move: Transition {
+            enabled: !window.isModelChanging && !window.isFilterAnimating && !(window.currentFilter === "Search" && window.hasSearched && !window.isSearchPaused)
+            NumberAnimation { properties: "x,y"; duration: 400; easing.type: Easing.OutCubic }
+        }
+        moveDisplaced: Transition {
+            enabled: !window.isModelChanging && !window.isFilterAnimating && !(window.currentFilter === "Search" && window.hasSearched && !window.isSearchPaused)
             NumberAnimation { properties: "x,y"; duration: 400; easing.type: Easing.OutCubic }
         }
         remove: Transition {
@@ -2000,6 +2103,7 @@ Item {
                     onTextEdited: function(newText) {
                         window.hasSearched = false;
                         searchState.searched = false;
+                        searchState.save();
                     }
 
                     onAccepted: function(finalText) {
@@ -2051,15 +2155,7 @@ Item {
     Component.onCompleted: {
         Quickshell.execDetached(["bash", "-c", "mkdir -p '" + decodeURIComponent(window.searchDir.replace("file://", "")) + "'"]);
 
-        if (searchState.searched) {
-            searchInput.text = searchState.query;
-            window.searchQuery = searchState.query;
-            window.hasSearched = true;
-            window.lastSearchName = searchState.lastName;
-            window.searchSessionId = searchState.sessionId;
-            window.isSearchPaused = true;
-        }
-
+        searchStateReader.running = true;
         indexDiskReader.running = true;
         window.syncFromSrcModel();
         window.triggerIndexer();

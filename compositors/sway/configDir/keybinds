@@ -19,6 +19,8 @@ bindsym $mod+L exec serpantinum lock
 bindsym $mod+space exec playerctl play-pause
 bindsym XF86AudioPause exec playerctl play-pause
 bindsym XF86AudioPlay exec playerctl play-pause
+bindsym XF86AudioPrev exec playerctl previous
+bindsym XF86AudioNext exec playerctl next
 bindsym XF86AudioMicMute exec serpantinum volume mic-toggle
 bindsym XF86AudioMute exec serpantinum volume mute-toggle
 bindsym XF86AudioLowerVolume exec serpantinum volume lower
@@ -34,6 +36,7 @@ bindsym $mod+S exec serpantinum msg toggle calendar
 bindsym $mod+N exec serpantinum msg toggle network
 bindsym $mod+V exec serpantinum msg toggle volume
 bindsym $mod+H exec serpantinum msg toggle guide
+bindsym $mod+A exec serpantinum msg toggle autohide
 
 bindsym $mod+Left focus left
 bindsym $mod+Right focus right
