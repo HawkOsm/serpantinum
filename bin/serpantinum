@@ -325,6 +325,7 @@ ALLOWED_SCRIPTS=(
     "weather"
     "location"
     "screenshot"
+    "minimize"
     "brightness"
     "current_focus"
     "monitors_detect"

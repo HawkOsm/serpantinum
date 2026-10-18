@@ -120,6 +120,15 @@ function getLayout(name, mx, my, mw, mh, userScale, barPosition) {
                 "right": { anchor: "center-left" } 
             } 
         },
+        "minimized": { 
+            w: "fill", h: 460, comp: "minimized/MinimizedPopup.qml", 
+            pos: { 
+                "top": { anchor: "center-left" }, 
+                "bottom": { anchor: "center-left" }, 
+                "left": { anchor: "center-left" }, 
+                "right": { anchor: "center-left" } 
+            } 
+        },
         "music": { 
             w: 625, h: 565, comp: "media/MusicPopup.qml", 
             pos: { 
