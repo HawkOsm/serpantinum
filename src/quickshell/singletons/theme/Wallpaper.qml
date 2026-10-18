@@ -13,6 +13,21 @@ Item {
 
     property var screenWallpapers: ({})
     property var screenWallpaperPaths: ({})
+    property var engines: ({})
+
+    function registerEngine(screenName: string, engine: var): void {
+        if (!screenName) return;
+        let map = Object.assign({}, root.engines);
+        map[screenName] = engine;
+        root.engines = map;
+    }
+
+    function unregisterEngine(screenName: string, engine: var): void {
+        if (!screenName || root.engines[screenName] !== engine) return;
+        let map = Object.assign({}, root.engines);
+        delete map[screenName];
+        root.engines = map;
+    }
 
     // DRM connector names (eDP-1, eDP-2, ...) are assigned by driver probe order and
     // can change across reboots (hybrid GPU laptops in particular), which would orphan
