@@ -989,10 +989,9 @@
     "default_user": "User",
     "unknown": "Unknown"
   },
-  "minimized": {
-    "title": "Minimized",
-    "empty": "No minimized windows",
-    "hint": "Enter restore   Backspace close   Esc dismiss"
+  "dockpreview": {
+    "minimized": "Minimized",
+    "untitled": "Untitled"
   },
   "music": {
     "nothing_playing": "Nothing is playing",
