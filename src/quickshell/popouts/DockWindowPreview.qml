@@ -34,7 +34,15 @@ PanelWindow {
     property real targetX: DockPreviewController.targetX
     property real targetY: DockPreviewController.targetY
     property string dockPosition: DockPreviewController.dockPosition
-    readonly property var windowsList: DockPreviewController.windows
+    // The popup keeps its own copy of the windows: the controller empties its list the moment it hides,
+    // which would collapse the panel from the sides during the fade-out. We only follow it while visible.
+    property var windowsList: []
+    Connections {
+        target: DockPreviewController
+        function onWindowsChanged() {
+            if (DockPreviewController.isVisible) previewWindow.windowsList = DockPreviewController.windows;
+        }
+    }
     readonly property var dockSettings: (typeof Config !== "undefined" && Config.rawSettings && Config.rawSettings.dock) ? Config.rawSettings.dock : ({})
 
     readonly property real cardW: s(232)
@@ -76,8 +84,14 @@ PanelWindow {
     visible: isVisible || container.animProgress > 0.001
 
     onIsVisibleChanged: {
-        if (isVisible) { closeAnim.stop(); openAnim.restart(); }
-        else { openAnim.stop(); closeAnim.restart(); }
+        if (isVisible) {
+            windowsList = DockPreviewController.windows;
+            closeAnim.stop();
+            openAnim.restart();
+        } else {
+            openAnim.stop();
+            closeAnim.restart();
+        }
     }
 
     Item {
@@ -101,13 +115,15 @@ PanelWindow {
 
         property real animProgress: 0.0
         opacity: animProgress
-        scale: 0.94 + 0.06 * animProgress
-        transformOrigin: previewWindow.dockPosition === "top" ? Item.Top
-            : previewWindow.dockPosition === "left" ? Item.Left
-            : previewWindow.dockPosition === "right" ? Item.Right : Item.Bottom
+        // slide a few pixels toward the dock while fading, instead of scaling (which looked like closing from the sides)
+        transform: Translate {
+            readonly property real d: (1.0 - container.animProgress) * previewWindow.s(8)
+            x: previewWindow.dockPosition === "left" ? -d : (previewWindow.dockPosition === "right" ? d : 0)
+            y: previewWindow.dockPosition === "top" ? -d : (previewWindow.dockPosition === "bottom" ? d : 0)
+        }
 
-        NumberAnimation { id: openAnim; target: container; property: "animProgress"; to: 1.0; duration: 160; easing.type: Easing.OutCubic }
-        NumberAnimation { id: closeAnim; target: container; property: "animProgress"; to: 0.0; duration: 90; easing.type: Easing.InCubic }
+        NumberAnimation { id: openAnim; target: container; property: "animProgress"; to: 1.0; duration: 170; easing.type: Easing.OutCubic }
+        NumberAnimation { id: closeAnim; target: container; property: "animProgress"; to: 0.0; duration: 150; easing.type: Easing.OutCubic }
 
         // Keep the preview open while the pointer is on it; close shortly after it leaves.
         HoverHandler {
@@ -144,7 +160,8 @@ PanelWindow {
                     height: previewWindow.cardH
                     radius: Math.max(0, ThemeBackend.borderRadius - previewWindow.s(2))
                     color: cardHover.hovered ? ThemeBackend.surface1 : ThemeBackend.surface0
-                    border.width: focused ? 2 : 0
+                    readonly property bool navSelected: DockPreviewController.navMode && index === DockPreviewController.selectedIndex
+                    border.width: navSelected ? 3 : ((focused && !DockPreviewController.navMode) ? 2 : 0)
                     border.color: ThemeBackend.mauve
                     Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -174,7 +191,7 @@ PanelWindow {
 
                         Item {
                             anchors.fill: parent
-                            layer.enabled: thumb.status === Image.Ready
+                            layer.enabled: thumb.status === Image.Ready || liveView.hasContent
                             layer.effect: MultiEffect { maskEnabled: true; maskSource: thumbMask }
 
                             Image {
@@ -187,8 +204,32 @@ PanelWindow {
                                 sourceSize.height: Math.round(previewWindow.thumbH * 2)
                                 source: (typeof WindowTracker !== "undefined" && card.win)
                                     ? WindowTracker.thumbUrl(card.win) + "?v=" + DockPreviewController.revision : ""
-                                opacity: status === Image.Ready ? (card.minimized ? 0.8 : 1.0) : 0.0
+                                // the saved snapshot is only a fallback: once a live frame exists it must not show through
+                                // (translucent windows would otherwise blend the old picture into the new one)
+                                opacity: (status === Image.Ready && !liveView.hasContent) ? (card.minimized ? 0.8 : 1.0) : 0.0
                                 Behavior on opacity { NumberAnimation { duration: 180 } }
+                            }
+
+                            // The window's CURRENT contents (captured once each time the preview opens, never live-streamed,
+                            // and without any dock/popup overlay in the picture). The saved snapshot above is only the fallback
+                            // for windows that cannot be captured right now.
+                            ScreencopyView {
+                                id: liveView
+                                readonly property real fit: sourceSize.width > 0 && sourceSize.height > 0
+                                    ? Math.max(parent.width / sourceSize.width, parent.height / sourceSize.height) : 1
+                                anchors.centerIn: parent
+                                width: sourceSize.width * fit
+                                height: sourceSize.height * fit
+                                captureSource: (card.win && card.win.native && card.win.native.wayland) ? card.win.native.wayland : null
+                                live: false
+                                // keep it "visible" (a hidden view never starts capturing) and fade it in once a frame exists
+                                opacity: hasContent ? (card.minimized ? 0.8 : 1.0) : 0.0
+
+                                Component.onCompleted: if (captureSource) captureFrame()
+                                Connections {
+                                    target: DockPreviewController
+                                    function onRevisionChanged() { if (liveView.captureSource) liveView.captureFrame(); }
+                                }
                             }
                         }
 
@@ -197,7 +238,7 @@ PanelWindow {
                             anchors.centerIn: parent
                             width: previewWindow.s(48)
                             height: width
-                            visible: thumb.status !== Image.Ready
+                            visible: thumb.status !== Image.Ready && !liveView.hasContent
                             fillMode: Image.PreserveAspectFit
                             sourceSize.width: 96
                             sourceSize.height: 96

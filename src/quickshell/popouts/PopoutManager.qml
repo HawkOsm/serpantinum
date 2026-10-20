@@ -11,4 +11,5 @@ Item {
     DesktopMenu {}
     DockAppMenu {}
     DockWindowPreview {}
+    DockNavKeys {}
 }
