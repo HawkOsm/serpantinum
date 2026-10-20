@@ -30,6 +30,17 @@ Item {
     readonly property int appWindowCount: runningInfo !== null ? runningInfo.count : 0
     readonly property bool isOnlyElsewhere: runningInfo !== null && runningInfo.count === 0 && runningInfo.elsewhere.length > 0
 
+    // One dot per window instance of this app: solid = on screen, hollow = minimized or on another workspace.
+    readonly property var dotStates: {
+        if (!runningInfo) return [];
+        let a = [];
+        let here = runningInfo.here || [];
+        let els = runningInfo.elsewhere || [];
+        for (let i = 0; i < here.length; i++) a.push(false);
+        for (let j = 0; j < els.length; j++) a.push(true);
+        return a.slice(0, 3);
+    }
+
     z: Math.round(runningBtnShape.scale * 100)
 
     readonly property bool canHoverScale: !dockWindow.editMode && dockWindow.dragSourceIndex === -1
@@ -205,7 +216,7 @@ Item {
             height: dockWindow.isVertical ? runningCol.implicitHeight : dockWindow.s(4)
 
             Rectangle {
-                visible: runningDockButton.isOnlyElsewhere
+                visible: false
                 anchors.centerIn: parent
                 width: dockWindow.s(4)
                 height: dockWindow.s(4)
@@ -217,7 +228,7 @@ Item {
 
             Rectangle {
                 id: runningSinglePill
-                visible: !runningDockButton.isOnlyElsewhere && runningDockButton.appWindowCount === 1 && runningDockButton.isAppFocused
+                visible: runningDockButton.dotStates.length === 1 && !runningDockButton.dotStates[0] && runningDockButton.isAppFocused
                 anchors.centerIn: parent
                 width: dockWindow.isVertical ? dockWindow.s(3.5) : dockWindow.s(14)
                 height: dockWindow.isVertical ? dockWindow.s(14) : dockWindow.s(3.5)
@@ -227,34 +238,40 @@ Item {
 
             Row {
                 id: runningRow
-                visible: !runningDockButton.isOnlyElsewhere && !runningSinglePill.visible && !dockWindow.isVertical
+                visible: runningDockButton.dotStates.length > 0 && !runningSinglePill.visible && !dockWindow.isVertical
                 anchors.centerIn: parent
                 spacing: dockWindow.s(2.5)
 
                 Repeater {
-                    model: Math.min(3, Math.max(1, runningDockButton.appWindowCount))
+                    model: runningDockButton.dotStates
                     delegate: Rectangle {
+                        required property var modelData
                         width: dockWindow.s(3.5)
                         height: dockWindow.s(3.5)
                         radius: width / 2
-                        color: (index === 0 && runningDockButton.isAppFocused) ? ThemeBackend.mauve : (index === 0 ? ThemeBackend.subtext0 : ThemeBackend.surface2)
+                        color: modelData ? "transparent" : ((index === 0 && runningDockButton.isAppFocused) ? ThemeBackend.mauve : (index === 0 ? ThemeBackend.subtext0 : ThemeBackend.surface2))
+                        border.width: modelData ? 1 : 0
+                        border.color: ThemeBackend.overlay0
                     }
                 }
             }
 
             Column {
                 id: runningCol
-                visible: !runningDockButton.isOnlyElsewhere && !runningSinglePill.visible && dockWindow.isVertical
+                visible: runningDockButton.dotStates.length > 0 && !runningSinglePill.visible && dockWindow.isVertical
                 anchors.centerIn: parent
                 spacing: dockWindow.s(2.5)
 
                 Repeater {
-                    model: Math.min(3, Math.max(1, runningDockButton.appWindowCount))
+                    model: runningDockButton.dotStates
                     delegate: Rectangle {
+                        required property var modelData
                         width: dockWindow.s(3.5)
                         height: dockWindow.s(3.5)
                         radius: width / 2
-                        color: (index === 0 && runningDockButton.isAppFocused) ? ThemeBackend.mauve : (index === 0 ? ThemeBackend.subtext0 : ThemeBackend.surface2)
+                        color: modelData ? "transparent" : ((index === 0 && runningDockButton.isAppFocused) ? ThemeBackend.mauve : (index === 0 ? ThemeBackend.subtext0 : ThemeBackend.surface2))
+                        border.width: modelData ? 1 : 0
+                        border.color: ThemeBackend.overlay0
                     }
                 }
             }
@@ -273,12 +290,14 @@ Item {
                 if (runningDockButton.canHoverScale) {
                     dockContainer.hoveredItemIndex = runningDockButton.itemIndex;
                 }
+                dockWindow.requestPreview(runningDockButton, model.desktop_id, model.name, model.icon);
             }
 
             onExited: {
                 if (dockContainer.hoveredItemIndex === runningDockButton.itemIndex) {
                     dockContainer.checkHoverReset();
                 }
+                dockWindow.dismissPreview();
             }
 
             onClicked: function(mouse) {
