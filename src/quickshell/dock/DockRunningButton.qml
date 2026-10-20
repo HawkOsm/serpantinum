@@ -30,14 +30,17 @@ Item {
     readonly property int appWindowCount: runningInfo !== null ? runningInfo.count : 0
     readonly property bool isOnlyElsewhere: runningInfo !== null && runningInfo.count === 0 && runningInfo.elsewhere.length > 0
 
-    // One dot per window instance of this app: solid = on screen, hollow = minimized or on another workspace.
+    // One dot per window instance of this app:
+    //   "here"      on this screen's workspace (solid; the focused one is accent coloured)
+    //   "elsewhere" open on another workspace / screen (solid but dimmed)
+    //   "minimized" hidden on special:minimized (hollow ring)
     readonly property var dotStates: {
         if (!runningInfo) return [];
         let a = [];
         let here = runningInfo.here || [];
         let els = runningInfo.elsewhere || [];
-        for (let i = 0; i < here.length; i++) a.push(false);
-        for (let j = 0; j < els.length; j++) a.push(true);
+        for (let i = 0; i < here.length; i++) a.push("here");
+        for (let j = 0; j < els.length; j++) a.push(els[j].minimized ? "minimized" : "elsewhere");
         return a.slice(0, 3);
     }
 
@@ -192,6 +195,15 @@ Item {
                     easing.type: Easing.OutExpo
                 }
             }
+
+            // keyboard navigation: outline on the selected app
+            Rectangle {
+                anchors.fill: parent
+                radius: runningDockButton.cornerRadius
+                color: "transparent"
+                border.width: dockContainer.navIndex === runningDockButton.itemIndex ? dockWindow.s(2) : 0
+                border.color: ThemeBackend.mauve
+            }
         }
 
         Item {
@@ -228,7 +240,7 @@ Item {
 
             Rectangle {
                 id: runningSinglePill
-                visible: runningDockButton.dotStates.length === 1 && !runningDockButton.dotStates[0] && runningDockButton.isAppFocused
+                visible: runningDockButton.dotStates.length === 1 && runningDockButton.dotStates[0] === "here" && runningDockButton.isAppFocused
                 anchors.centerIn: parent
                 width: dockWindow.isVertical ? dockWindow.s(3.5) : dockWindow.s(14)
                 height: dockWindow.isVertical ? dockWindow.s(14) : dockWindow.s(3.5)
@@ -246,12 +258,14 @@ Item {
                     model: runningDockButton.dotStates
                     delegate: Rectangle {
                         required property var modelData
-                        width: dockWindow.s(3.5)
-                        height: dockWindow.s(3.5)
+                        width: dockWindow.s(4.5)
+                        height: dockWindow.s(4.5)
                         radius: width / 2
-                        color: modelData ? "transparent" : ((index === 0 && runningDockButton.isAppFocused) ? ThemeBackend.mauve : (index === 0 ? ThemeBackend.subtext0 : ThemeBackend.surface2))
-                        border.width: modelData ? 1 : 0
-                        border.color: ThemeBackend.overlay0
+                        color: modelData === "minimized" ? "transparent"
+                            : modelData === "elsewhere" ? Qt.rgba(ThemeBackend.text.r, ThemeBackend.text.g, ThemeBackend.text.b, 0.7)
+                            : ((index === 0 && runningDockButton.isAppFocused) ? ThemeBackend.mauve : (index === 0 ? ThemeBackend.subtext0 : ThemeBackend.overlay1))
+                        border.width: modelData === "minimized" ? dockWindow.s(1.5) : 0
+                        border.color: Qt.rgba(ThemeBackend.text.r, ThemeBackend.text.g, ThemeBackend.text.b, 0.9)
                     }
                 }
             }
@@ -266,12 +280,14 @@ Item {
                     model: runningDockButton.dotStates
                     delegate: Rectangle {
                         required property var modelData
-                        width: dockWindow.s(3.5)
-                        height: dockWindow.s(3.5)
+                        width: dockWindow.s(4.5)
+                        height: dockWindow.s(4.5)
                         radius: width / 2
-                        color: modelData ? "transparent" : ((index === 0 && runningDockButton.isAppFocused) ? ThemeBackend.mauve : (index === 0 ? ThemeBackend.subtext0 : ThemeBackend.surface2))
-                        border.width: modelData ? 1 : 0
-                        border.color: ThemeBackend.overlay0
+                        color: modelData === "minimized" ? "transparent"
+                            : modelData === "elsewhere" ? Qt.rgba(ThemeBackend.text.r, ThemeBackend.text.g, ThemeBackend.text.b, 0.7)
+                            : ((index === 0 && runningDockButton.isAppFocused) ? ThemeBackend.mauve : (index === 0 ? ThemeBackend.subtext0 : ThemeBackend.overlay1))
+                        border.width: modelData === "minimized" ? dockWindow.s(1.5) : 0
+                        border.color: Qt.rgba(ThemeBackend.text.r, ThemeBackend.text.g, ThemeBackend.text.b, 0.9)
                     }
                 }
             }
